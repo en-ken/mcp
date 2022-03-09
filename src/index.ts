@@ -5,7 +5,7 @@ export const useMCP = <F extends (...args: any[]) => Promise<any>>(f: F) => {
 
   const multipleClickPreventer = async (
     ...args: Parameters<F>
-  ): Promise<ReturnType<F> | undefined> => {
+  ): Promise<ReturnType<F> | void> => {
     if (isProcessing.current) {
       return;
     }
