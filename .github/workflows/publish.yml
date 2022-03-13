@@ -5,12 +5,12 @@ on:
       - '[0-9]+.[0-9]+.[0-9]+'
 jobs:
   test:
-    run-on: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: ./test.yml
   publish:
     needs: test
-    run-on: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
