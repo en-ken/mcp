@@ -11,17 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '16'
       - name: Cache dependencies
         uses: actions/cache@v2
         with:
           path: ~/.npm
           key: npm-${{ hashFiles('package-lock.json') }}
           restore-keys: npm-
-      - run: npm ci
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+          registry-url: 'https://registry.npmjs.org'
       - run: sed -i "s|__MCP_VERSIONING_ON_PUBLISH__|${GITHUB_REF_NAME}|g" package.json
+      - run: npm ci
       - run: npm run build
       - run: npm publish
         env:
