@@ -22,6 +22,7 @@ jobs:
           restore-keys: npm-
       - run: npm ci
       - run: sed -i "s|__MCP_VERSIONING_ON_PUBLISH__|${GITHUB_REF_NAME}|g" package.json
+      - run: npm run build
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
