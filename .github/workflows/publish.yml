@@ -21,7 +21,7 @@ jobs:
           key: npm-${{ hashFiles('package-lock.json') }}
           restore-keys: npm-
       - run: npm ci
-      - run: sed -i 's/__MCP_VERSIONING_ON_PUBLISH__/${GITHUB_REF}/' package.json
+      - run: sed -i "s/__MCP_VERSIONING_ON_PUBLISH__/${GITHUB_REF}/" package.json
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
