@@ -1,0 +1,29 @@
+name: Publish to npm
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+jobs:
+  test:
+    run-on: ubuntu-latest
+    steps:
+      uses: ./test.yml
+  publish:
+    needs: test
+    run-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-
+      - run: npm ci
+      - run: sed -i 's/__MCP_VERSIONING_ON_PUBLISH__/${GITHUB_REF}/' package.json
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
