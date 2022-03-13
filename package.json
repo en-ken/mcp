@@ -1,5 +1,5 @@
 {
-  "name": "mcp",
+  "name": "mcp-hook",
   "version": "__MCP_VERSIONING_ON_PUBLISH__",
   "description": "React hooks to prevent multiple clicks",
   "main": "./dist/index.js",

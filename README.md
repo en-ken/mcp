@@ -1,18 +1,18 @@
-# mcp
+# mcp-hook
 
-React hooks to prevent multiple clicks.
+React hook to prevent multiple clicks.
 
 ## Installation
 
 ```sh
-npm install mcp
+npm install mcp-hook
 ```
 
 ## Usage
 
 ```typescript
 import React from 'react';
-import { useMCP } from './index';
+import { useMCP } from 'mcp-hook';
 
 export const Foo: React.FC = () => {
   // just wrap the async handler.
