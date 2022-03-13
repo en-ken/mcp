@@ -5,9 +5,7 @@ on:
       - '[0-9]+.[0-9]+.[0-9]+'
 jobs:
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: ./test.yml
+    uses: ./.github/workflows/test.yml
   publish:
     needs: test
     runs-on: ubuntu-latest
