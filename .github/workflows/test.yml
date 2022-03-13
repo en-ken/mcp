@@ -1,5 +1,11 @@
 name: Test on push
-on: [push]
+on:
+  push:
+    branches:
+      - 'main'
+      - 'feat/**'
+      - 'feature/**'
+      - 'fix/**'
 jobs:
   test:
     runs-on: ubuntu-latest
