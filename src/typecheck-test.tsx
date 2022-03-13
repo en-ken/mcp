@@ -29,6 +29,10 @@ export const TestComponent: React.FC = () => {
   const handleClick2 = useMCP(async (time: number, unit: Unit) => {
     await callApiMock(time, unit);
   });
+  const handleClickWithReturn = useMCP(async (arg1: number, arg2: number) => {
+    await callApiMock();
+    return arg1 + arg2;
+  });
 
   return (
     <>
@@ -47,6 +51,22 @@ export const TestComponent: React.FC = () => {
           handleClick2(10, 'sec');
         }}
       />
+      <TestReturnTypeComponent onClick={handleClickWithReturn} />
     </>
   );
 };
+
+const TestReturnTypeComponent: React.FC<{
+  onClick: (arg1: number, arg2: number) => Promise<number | void>;
+}> = ({ onClick }) => (
+  <button
+    onClick={async () => {
+      const value = await onClick(1, 2);
+      if (value) {
+        console.log('onClick result = ' + value);
+      } else {
+        console.log('mcp prevented the processing.');
+      }
+    }}
+  />
+);
