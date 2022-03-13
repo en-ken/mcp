@@ -6,6 +6,9 @@
   "exports": "./dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "jest",
     "lint": "tsc -p tsconfig.check.json && eslint ./src && prettier ./src --check",
