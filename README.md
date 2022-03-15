@@ -1,6 +1,6 @@
 # mcp-hook
 
-React hook to prevent multiple clicks.
+React hook to prevent multiple clicks. This is effective when calling non-idempotent APIs.
 
 ## Installation
 
