@@ -1,6 +1,6 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import React, { useState } from 'react';
 import { useMCP } from './index';
-import { render, fireEvent, screen } from '@testing-library/react';
-import React from 'react';
 
 describe('useMCP passes the event', () => {
   test('with NO arguments', () => {
@@ -66,6 +66,33 @@ describe('useMCP passes the event', () => {
     render(<Test />);
     fireEvent.click(screen.getByTestId('target'));
     expect(actual).toEqual(['foo', { bar: true }]);
+  });
+
+  test('with a return value', async () => {
+    const Test: React.FC = () => {
+      const [target, setTarget] = useState('');
+
+      const handleClick = useMCP(async () => {
+        return 'foo';
+      });
+
+      return (
+        <div>
+          <button
+            data-testid="target"
+            onClick={async () => {
+              const ret = await handleClick();
+              ret && setTarget(ret);
+            }}
+          />
+          <div id="target">{target}</div>
+        </div>
+      );
+    };
+
+    render(<Test />);
+    fireEvent.click(screen.getByTestId('target'));
+    await screen.findByText('foo');
   });
 });
 

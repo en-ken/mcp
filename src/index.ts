@@ -9,13 +9,13 @@ export const useMCP = <F extends (...args: any[]) => Promise<any>>(f: F) => {
 
   const multipleClickPreventer = async (
     ...args: Parameters<F>
-  ): Promise<AwaitType<ReturnType<F>> | void> => {
+  ): Promise<AwaitType<ReturnType<F>> | undefined> => {
     if (isProcessing.current) {
       return;
     }
     try {
       isProcessing.current = true;
-      await f(...args);
+      return await f(...args);
     } finally {
       isProcessing.current = false;
     }
