@@ -1,6 +1,18 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import React, { useState } from 'react';
 import { useMCP } from './index';
+
+// 解決タイミングをテスト側から制御できる Promise を作る。
+// setTimeout に頼るとテスト終了後にタイマーが残るため、こちらを使う。
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
 
 describe('useMCP passes the event', () => {
   test('with NO arguments', () => {
@@ -96,30 +108,190 @@ describe('useMCP passes the event', () => {
   });
 });
 
-const sleepAsync = (msec: number) => {
-  return new Promise((resolve) => setTimeout(resolve, msec));
-};
+describe('useMCP prevents duplicated execution', () => {
+  test('runs the handler only once for 100 consecutive clicks', async () => {
+    let count = 0;
+    const deferred = createDeferred<void>();
 
-test('useMCP is called only once after 100 multiple clicks.', () => {
-  let count = 0;
+    const Test: React.FC = () => {
+      const handleClick = useMCP(async () => {
+        count++;
+        await deferred.promise;
+      });
 
-  const Test: React.FC = () => {
-    const handleClick = useMCP(async (sleepTimeMsec: number) => {
-      count++;
-      await sleepAsync(sleepTimeMsec);
+      return (
+        <div>
+          <button data-testid="target" onClick={() => handleClick()} />
+        </div>
+      );
+    };
+
+    render(<Test />);
+    const target = screen.getByTestId('target');
+    for (let i = 0; i < 100; i++) {
+      fireEvent.click(target);
+    }
+
+    expect(count).toEqual(1);
+
+    // 保留中の Promise を残したままテストを終えないよう後始末する
+    await act(async () => {
+      deferred.resolve();
+    });
+  });
+
+  test('releases the guard after the handler resolves', async () => {
+    let count = 0;
+    let deferred = createDeferred<void>();
+
+    const Test: React.FC = () => {
+      const handleClick = useMCP(async () => {
+        count++;
+        await deferred.promise;
+      });
+
+      return (
+        <div>
+          <button data-testid="target" onClick={() => handleClick()} />
+        </div>
+      );
+    };
+
+    render(<Test />);
+    const target = screen.getByTestId('target');
+
+    fireEvent.click(target);
+    fireEvent.click(target);
+    expect(count).toEqual(1);
+
+    await act(async () => {
+      deferred.resolve();
     });
 
-    return (
-      <div>
-        <button data-testid="target" onClick={() => handleClick(1000)} />
-      </div>
-    );
-  };
+    deferred = createDeferred<void>();
+    fireEvent.click(target);
+    expect(count).toEqual(2);
 
-  render(<Test />);
-
-  [...Array(100)].map(async () => {
-    fireEvent.click(screen.getByTestId('target'));
+    await act(async () => {
+      deferred.resolve();
+    });
   });
-  expect(count).toEqual(1);
+
+  test('releases the guard even when the handler rejects', async () => {
+    let count = 0;
+    let deferred = createDeferred<void>();
+
+    const Test: React.FC = () => {
+      const handleClick = useMCP(async () => {
+        count++;
+        await deferred.promise;
+      });
+
+      return (
+        <div>
+          <button
+            data-testid="target"
+            // 呼び出し側で握らないと unhandled rejection になる点に注意
+            onClick={() => handleClick().catch(() => undefined)}
+          />
+        </div>
+      );
+    };
+
+    render(<Test />);
+    const target = screen.getByTestId('target');
+
+    fireEvent.click(target);
+    await act(async () => {
+      deferred.reject(new Error('failed'));
+    });
+
+    deferred = createDeferred<void>();
+    fireEvent.click(target);
+    expect(count).toEqual(2);
+
+    await act(async () => {
+      deferred.resolve();
+    });
+  });
+
+  test('resolves with undefined when the call is prevented', async () => {
+    const returned: Record<number, unknown> = {};
+    let clicks = 0;
+    const deferred = createDeferred<void>();
+
+    const Test: React.FC = () => {
+      const handleClick = useMCP(async () => {
+        await deferred.promise;
+        return 'foo';
+      });
+
+      return (
+        <div>
+          <button
+            data-testid="target"
+            onClick={async () => {
+              const nth = ++clicks;
+              returned[nth] = await handleClick();
+            }}
+          />
+        </div>
+      );
+    };
+
+    render(<Test />);
+    const target = screen.getByTestId('target');
+    fireEvent.click(target);
+    fireEvent.click(target);
+
+    await act(async () => {
+      deferred.resolve();
+    });
+
+    expect(returned).toEqual({ 1: 'foo', 2: undefined });
+  });
+});
+
+describe('useMCP returns a stable callback', () => {
+  test('keeps the same reference across re-renders', () => {
+    const handlers: unknown[] = [];
+
+    const Test: React.FC<{ value: number }> = ({ value }) => {
+      // 実利用と同様に毎レンダで新しい関数リテラルを渡す
+      const handleClick = useMCP(async () => value);
+      handlers.push(handleClick);
+      return null;
+    };
+
+    const { rerender } = render(<Test value={1} />);
+    rerender(<Test value={2} />);
+
+    expect(handlers).toHaveLength(2);
+    expect(handlers[0]).toBe(handlers[1]);
+  });
+
+  test('calls the latest handler after a re-render', async () => {
+    const called: number[] = [];
+
+    const Test: React.FC<{ value: number }> = ({ value }) => {
+      const handleClick = useMCP(async () => {
+        called.push(value);
+      });
+
+      return (
+        <div>
+          <button data-testid="target" onClick={() => handleClick()} />
+        </div>
+      );
+    };
+
+    const { rerender } = render(<Test value={1} />);
+    rerender(<Test value={2} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('target'));
+    });
+
+    expect(called).toEqual([2]);
+  });
 });
