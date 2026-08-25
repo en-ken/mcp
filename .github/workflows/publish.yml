@@ -3,27 +3,29 @@ on:
   push:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
+permissions:
+  contents: read
 jobs:
   test:
     uses: ./.github/workflows/test.yml
   publish:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance の署名に必要
     steps:
-      - uses: actions/checkout@v2
-      - name: Cache dependencies
-        uses: actions/cache@v2
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          path: ~/.npm
-          key: npm-${{ hashFiles('package-lock.json') }}
-          restore-keys: npm-
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '16'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-      - run: sed -i "s|__MCP_VERSIONING_ON_PUBLISH__|${GITHUB_REF_NAME}|g" package.json
+          cache: 'npm'
       - run: npm ci
+      # バージョンはタグから注入する。npm ci より前に package.json を書き換えると
+      # package-lock.json との整合性チェックに引っかかるため、この順序を変えないこと。
+      - run: npm pkg set version="${GITHUB_REF_NAME}"
       - run: npm run build
-      - run: npm publish
+      - run: npm publish --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
