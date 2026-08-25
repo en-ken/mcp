@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import React, { useState } from 'react';
-import { useMCP } from './index';
+import { PREVENTED, useMCP } from './index';
 
 // Creates a promise whose settlement is driven by the test.
 // Relying on setTimeout would leave a pending timer after the test ends.
@@ -15,11 +15,11 @@ const createDeferred = <T,>() => {
 };
 
 describe('useMCP passes the event', () => {
-  test('with NO arguments', () => {
+  test('with NO arguments', async () => {
     let actual = '';
 
     const Test: React.FC = () => {
-      const handleClick = useMCP(async () => {
+      const [handleClick] = useMCP(async () => {
         actual = 'foo';
       });
 
@@ -31,15 +31,17 @@ describe('useMCP passes the event', () => {
     };
 
     render(<Test />);
-    fireEvent.click(screen.getByTestId('target'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('target'));
+    });
     expect(actual).toEqual('foo');
   });
 
-  test('with 1 argument', () => {
+  test('with 1 argument', async () => {
     let actual = '';
 
     const Test: React.FC = () => {
-      const handleClick = useMCP(async (value: string) => {
+      const [handleClick] = useMCP(async (value: string) => {
         actual = value;
       });
 
@@ -51,15 +53,17 @@ describe('useMCP passes the event', () => {
     };
 
     render(<Test />);
-    fireEvent.click(screen.getByTestId('target'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('target'));
+    });
     expect(actual).toEqual('foo');
   });
 
-  test('with 2 arguments', () => {
+  test('with 2 arguments', async () => {
     let actual = ['', {}];
 
     const Test: React.FC = () => {
-      const handleClick = useMCP(
+      const [handleClick] = useMCP(
         async (value1: string, value2: Record<string, boolean>) => {
           actual = [value1, value2];
         }
@@ -76,7 +80,9 @@ describe('useMCP passes the event', () => {
     };
 
     render(<Test />);
-    fireEvent.click(screen.getByTestId('target'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('target'));
+    });
     expect(actual).toEqual(['foo', { bar: true }]);
   });
 
@@ -84,7 +90,7 @@ describe('useMCP passes the event', () => {
     const Test: React.FC = () => {
       const [target, setTarget] = useState('');
 
-      const handleClick = useMCP(async () => {
+      const [handleClick] = useMCP(async () => {
         return 'foo';
       });
 
@@ -94,7 +100,9 @@ describe('useMCP passes the event', () => {
             data-testid="target"
             onClick={async () => {
               const ret = await handleClick();
-              ret && setTarget(ret);
+              if (ret !== PREVENTED) {
+                setTarget(ret);
+              }
             }}
           />
           <div id="target">{target}</div>
@@ -114,7 +122,7 @@ describe('useMCP prevents duplicated execution', () => {
     const deferred = createDeferred<void>();
 
     const Test: React.FC = () => {
-      const handleClick = useMCP(async () => {
+      const [handleClick] = useMCP(async () => {
         count++;
         await deferred.promise;
       });
@@ -145,7 +153,7 @@ describe('useMCP prevents duplicated execution', () => {
     let deferred = createDeferred<void>();
 
     const Test: React.FC = () => {
-      const handleClick = useMCP(async () => {
+      const [handleClick] = useMCP(async () => {
         count++;
         await deferred.promise;
       });
@@ -182,7 +190,7 @@ describe('useMCP prevents duplicated execution', () => {
     let deferred = createDeferred<void>();
 
     const Test: React.FC = () => {
-      const handleClick = useMCP(async () => {
+      const [handleClick] = useMCP(async () => {
         count++;
         await deferred.promise;
       });
@@ -215,13 +223,13 @@ describe('useMCP prevents duplicated execution', () => {
     });
   });
 
-  test('resolves with undefined when the call is prevented', async () => {
+  test('resolves with PREVENTED when the call is prevented', async () => {
     const returned: Record<number, unknown> = {};
     let clicks = 0;
     const deferred = createDeferred<void>();
 
     const Test: React.FC = () => {
-      const handleClick = useMCP(async () => {
+      const [handleClick] = useMCP(async () => {
         await deferred.promise;
         return 'foo';
       });
@@ -248,7 +256,115 @@ describe('useMCP prevents duplicated execution', () => {
       deferred.resolve();
     });
 
-    expect(returned).toEqual({ 1: 'foo', 2: undefined });
+    expect(returned).toEqual({ 1: 'foo', 2: PREVENTED });
+  });
+
+  test('distinguishes a prevented call from a handler returning undefined', async () => {
+    const returned: Record<number, unknown> = {};
+    let clicks = 0;
+    const deferred = createDeferred<void>();
+
+    const Test: React.FC = () => {
+      const [handleClick] = useMCP(async () => {
+        await deferred.promise;
+        return undefined;
+      });
+
+      return (
+        <div>
+          <button
+            data-testid="target"
+            onClick={async () => {
+              const nth = ++clicks;
+              returned[nth] = await handleClick();
+            }}
+          />
+        </div>
+      );
+    };
+
+    render(<Test />);
+    const target = screen.getByTestId('target');
+    fireEvent.click(target);
+    fireEvent.click(target);
+
+    await act(async () => {
+      deferred.resolve();
+    });
+
+    expect(returned[1]).toBeUndefined();
+    expect(returned[2]).toBe(PREVENTED);
+  });
+});
+
+describe('useMCP exposes the processing state', () => {
+  test('flips isProcessing while the handler is running', async () => {
+    const deferred = createDeferred<void>();
+
+    const Test: React.FC = () => {
+      const [handleClick, isProcessing] = useMCP(async () => {
+        await deferred.promise;
+      });
+
+      return (
+        <div>
+          <button
+            data-testid="target"
+            disabled={isProcessing}
+            onClick={() => handleClick()}
+          />
+          <div data-testid="state">{isProcessing ? 'busy' : 'idle'}</div>
+        </div>
+      );
+    };
+
+    render(<Test />);
+    const target = screen.getByTestId('target') as HTMLButtonElement;
+    expect(screen.getByTestId('state').textContent).toEqual('idle');
+
+    await act(async () => {
+      fireEvent.click(target);
+    });
+    expect(screen.getByTestId('state').textContent).toEqual('busy');
+    expect(target.disabled).toBe(true);
+
+    await act(async () => {
+      deferred.resolve();
+    });
+    expect(screen.getByTestId('state').textContent).toEqual('idle');
+    expect(target.disabled).toBe(false);
+  });
+
+  test('does not update the state after unmount', async () => {
+    const deferred = createDeferred<void>();
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {
+      // Stubbed to capture the post-unmount setState warning of React 17 and earlier
+    });
+
+    const Test: React.FC = () => {
+      const [handleClick] = useMCP(async () => {
+        await deferred.promise;
+      });
+
+      return (
+        <div>
+          <button data-testid="target" onClick={() => handleClick()} />
+        </div>
+      );
+    };
+
+    const { unmount } = render(<Test />);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('target'));
+    });
+
+    unmount();
+    await act(async () => {
+      deferred.resolve();
+    });
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });
 
@@ -258,7 +374,7 @@ describe('useMCP returns a stable callback', () => {
 
     const Test: React.FC<{ value: number }> = ({ value }) => {
       // Pass a fresh function literal on every render, as real usage does
-      const handleClick = useMCP(async () => value);
+      const [handleClick] = useMCP(async () => value);
       handlers.push(handleClick);
       return null;
     };
@@ -274,7 +390,7 @@ describe('useMCP returns a stable callback', () => {
     const called: number[] = [];
 
     const Test: React.FC<{ value: number }> = ({ value }) => {
-      const handleClick = useMCP(async () => {
+      const [handleClick] = useMCP(async () => {
         called.push(value);
       });
 

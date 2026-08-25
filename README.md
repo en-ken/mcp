@@ -13,7 +13,7 @@ npm install mcp-hook
 
 ## Usage
 
-Wrap an async handler with `useMCP`. While the wrapped handler is still running, further calls are ignored and resolve to `undefined` immediately.
+Wrap an async handler with `useMCP`. It returns a tuple of the wrapped handler and a flag telling whether that handler is currently running. While it is running, further calls are ignored and resolve to `PREVENTED` immediately.
 
 ```typescript
 import React from 'react';
@@ -21,23 +21,52 @@ import { useMCP } from 'mcp-hook';
 
 export const Foo: React.FC = () => {
   // just wrap the async handler.
-  const handleClick = useMCP(async () => {
+  const [handleClick, isProcessing] = useMCP(async () => {
     try {
-      // Start display loader, etc...
       await doSomethingAsync();
     } catch (e) {
       // Error handling
-    } finally {
-      // Stop display loader, etc...
     }
   });
 
   return (
     <div>
-      <button onClick={() => handleClick()} />
+      <button disabled={isProcessing} onClick={() => handleClick()} />
     </div>
   );
 };
+```
+
+## Detecting a prevented call
+
+While the wrapped handler is running, further calls are ignored and resolve to the exported `PREVENTED` symbol. Comparing against it is the only reliable way to tell a prevented call from a handler that legitimately returned `undefined`, `0`, or `''`.
+
+```typescript
+import { PREVENTED, useMCP } from 'mcp-hook';
+
+const [submit] = useMCP(async () => await postOrder());
+
+const onClick = async () => {
+  const result = await submit();
+  if (result === PREVENTED) {
+    return;
+  }
+  // `result` is narrowed to the handler's return type here.
+  console.log(result);
+};
+```
+
+## Migrating from 0.1.x
+
+- `useMCP` now returns `[handler, isProcessing]` instead of the handler alone.
+- A prevented call resolves to `PREVENTED` instead of `undefined`.
+
+```diff
+- const handleClick = useMCP(async () => { ... });
++ const [handleClick] = useMCP(async () => { ... });
+
+- if (result) { ... }
++ if (result !== PREVENTED) { ... }
 ```
 
 ## Usage notes
@@ -49,10 +78,6 @@ export const Foo: React.FC = () => {
 ```typescript
 <button onClick={() => handleClick().catch(handleError)} />
 ```
-
-### `undefined` is ambiguous
-
-A prevented call resolves to `undefined`. If your handler can also return `undefined` — or any falsy value — the call site cannot tell the two cases apart. Return a value that is never falsy, or track the state yourself.
 
 ### Synthetic events on React 16
 
