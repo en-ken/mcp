@@ -1,6 +1,6 @@
 // File for typecheck.
 import React from 'react';
-import { useMCP } from './index';
+import { PREVENTED, Prevented, useMCP } from './index';
 
 type Unit = 'msec' | 'sec' | 'min';
 
@@ -20,16 +20,18 @@ const callApiMock = async (time = 3000, unit: Unit = 'msec') => {
 };
 
 export const TestComponent: React.FC = () => {
-  const handleClick0 = useMCP(async () => {
+  const [handleClick0] = useMCP(async () => {
     await callApiMock();
   });
-  const handleClick1 = useMCP(async (timeSec: number) => {
+  const [handleClick1] = useMCP(async (timeSec: number) => {
     await callApiMock(timeSec);
   });
-  const handleClick2 = useMCP(async (time: number, unit: Unit) => {
-    await callApiMock(time, unit);
-  });
-  const handleClickWithReturn = useMCP(async (arg1: number, arg2: number) => {
+  const [handleClick2, isProcessing2] = useMCP(
+    async (time: number, unit: Unit) => {
+      await callApiMock(time, unit);
+    }
+  );
+  const [handleClickWithReturn] = useMCP(async (arg1: number, arg2: number) => {
     await callApiMock();
     return arg1 + arg2;
   });
@@ -47,6 +49,7 @@ export const TestComponent: React.FC = () => {
         }}
       />
       <button
+        disabled={isProcessing2}
         onClick={() => {
           handleClick2(10, 'sec');
         }}
@@ -57,15 +60,15 @@ export const TestComponent: React.FC = () => {
 };
 
 const TestReturnTypeComponent: React.FC<{
-  onClick: (arg1: number, arg2: number) => Promise<number | void>;
+  onClick: (arg1: number, arg2: number) => Promise<number | Prevented>;
 }> = ({ onClick }) => (
   <button
     onClick={async () => {
       const value = await onClick(1, 2);
-      if (value) {
-        console.log('onClick result = ' + value);
-      } else {
+      if (value === PREVENTED) {
         console.log('mcp prevented the processing.');
+      } else {
+        console.log('onClick result = ' + value);
       }
     }}
   />
