@@ -1,6 +1,9 @@
 version: 2
 updates:
-  # Every dependency is a devDependency, so receive them as a single PR
+  # Every dependency is a devDependency, so receive minor/patch bumps as a single PR.
+  # Major bumps are excluded from the group: batching them lets one major break the
+  # peer ranges of another (e.g. typescript 7 against @typescript-eslint 8), and the
+  # whole PR fails to install. Majors arrive as individual PRs instead.
   - package-ecosystem: npm
     directory: '/'
     schedule:
@@ -10,6 +13,10 @@ updates:
       npm-dependencies:
         patterns:
           - '*'
+        update-types:
+          - minor
+          - patch
+  # Actions have no peer resolution between them, so grouping every update type is safe.
   - package-ecosystem: github-actions
     directory: '/'
     schedule:
