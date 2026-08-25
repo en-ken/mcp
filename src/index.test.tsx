@@ -2,8 +2,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import React, { useState } from 'react';
 import { useMCP } from './index';
 
-// 解決タイミングをテスト側から制御できる Promise を作る。
-// setTimeout に頼るとテスト終了後にタイマーが残るため、こちらを使う。
+// Creates a promise whose settlement is driven by the test.
+// Relying on setTimeout would leave a pending timer after the test ends.
 const createDeferred = <T,>() => {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -134,7 +134,7 @@ describe('useMCP prevents duplicated execution', () => {
 
     expect(count).toEqual(1);
 
-    // 保留中の Promise を残したままテストを終えないよう後始末する
+    // Settle the pending promise so the test does not leave one behind
     await act(async () => {
       deferred.resolve();
     });
@@ -191,7 +191,7 @@ describe('useMCP prevents duplicated execution', () => {
         <div>
           <button
             data-testid="target"
-            // 呼び出し側で握らないと unhandled rejection になる点に注意
+            // Note: without catching here this becomes an unhandled rejection
             onClick={() => handleClick().catch(() => undefined)}
           />
         </div>
@@ -257,7 +257,7 @@ describe('useMCP returns a stable callback', () => {
     const handlers: unknown[] = [];
 
     const Test: React.FC<{ value: number }> = ({ value }) => {
-      // 実利用と同様に毎レンダで新しい関数リテラルを渡す
+      // Pass a fresh function literal on every render, as real usage does
       const handleClick = useMCP(async () => value);
       handlers.push(handleClick);
       return null;
