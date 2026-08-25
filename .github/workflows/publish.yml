@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance の署名に必要
+      id-token: write # required to sign npm provenance
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -22,8 +22,8 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
       - run: npm ci
-      # バージョンはタグから注入する。npm ci より前に package.json を書き換えると
-      # package-lock.json との整合性チェックに引っかかるため、この順序を変えないこと。
+      # Inject the version from the tag. Rewriting package.json before npm ci
+      # would fail its integrity check against package-lock.json, so keep this order.
       - run: npm pkg set version="${GITHUB_REF_NAME}"
       - run: npm run build
       - run: npm publish --provenance

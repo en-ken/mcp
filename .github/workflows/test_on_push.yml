@@ -1,6 +1,6 @@
 name: Test on push
-# pull_request で全てのトピックブランチを網羅するため、push 側は main のみに絞る。
-# 以前はブランチ名の prefix 列挙だったため chore/** などが CI を素通りしていた。
+# pull_request covers every topic branch, so push is limited to main.
+# The previous branch-name prefix list let chore/** and others skip CI entirely.
 on:
   pull_request:
   push:

@@ -2,9 +2,9 @@ import { useCallback, useRef } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const useMCP = <F extends (...args: any[]) => Promise<any>>(f: F) => {
-  // 返す関数の参照をレンダ間で固定しつつ、実行時には常に最新の f を呼びたいので
-  // f 自体は ref 経由で参照する（いわゆる latest ref パターン）。
-  // これをしないと呼び出し側で React.memo や useEffect の依存配列が毎レンダ壊れる。
+  // Keep the returned function stable across renders while still calling the
+  // latest `f` (the "latest ref" pattern). Without this, `React.memo` and
+  // dependency arrays on the caller side break on every render.
   const fRef = useRef(f);
   fRef.current = f;
 
