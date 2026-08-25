@@ -1,11 +1,11 @@
 name: Test on push
+# pull_request で全てのトピックブランチを網羅するため、push 側は main のみに絞る。
+# 以前はブランチ名の prefix 列挙だったため chore/** などが CI を素通りしていた。
 on:
+  pull_request:
   push:
     branches:
       - 'main'
-      - 'feat/**'
-      - 'feature/**'
-      - 'fix/**'
 jobs:
   test:
     uses: ./.github/workflows/test.yml
