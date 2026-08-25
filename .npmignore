@@ -1,5 +1,0 @@
-src/
-coverage/
-.vscode/
-.eslintrc.yml
-tsconfig.*
