@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # 依存は全て devDependencies なので、1 本の PR にまとめて受け取る
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      npm-dependencies:
+        patterns:
+          - '*'
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns:
+          - '*'
