@@ -13,12 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # required to sign npm provenance
+      # Authenticates to npm via trusted publishing (OIDC). No npm token involved.
+      id-token: write
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          # Trusted publishing needs npm >= 11.5.1. Node 22 still bundles npm 10.x,
+          # so stay on 24, which bundles npm 11.
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
       - run: npm ci
@@ -26,6 +29,6 @@ jobs:
       # would fail its integrity check against package-lock.json, so keep this order.
       - run: npm pkg set version="${GITHUB_REF_NAME}"
       - run: npm run build
-      - run: npm publish --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Provenance is generated automatically under trusted publishing,
+      # so --provenance is not needed here.
+      - run: npm publish
